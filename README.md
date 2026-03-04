@@ -106,13 +106,3 @@ El uso indebido es ilegal y no forma parte del propósito del proyecto.
 ## Licencia
 
 BSD 3-Clause (incluida en el repositorio).
-
----
-
-## Autora
-
-Proyecto desarrollado por **TheOffSecGirl**.
-
-- GitHub: https://github.com/theoffsecgirl  
-- Web técnica: https://www.theoffsecgirl.com  
-- Academia: https://www.northstaracademy.io
