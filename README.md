@@ -1,48 +1,55 @@
-# **BLUEDEATH**
+<div align="center">
 
-Herramienta de auditoría Bluetooth (BR/EDR) para Linux.
-Permite escanear, identificar actividad, comprobar conectividad y ejecutar pruebas de estrés controladas basadas en `l2ping` usando la pila BlueZ.
+# tool-bluedeath
 
-## ¿Por qué existe BLUEDEATH?
+**Auditoría ofensiva Bluetooth BR/EDR para Linux**
 
-La mayoría de herramientas para auditoría Bluetooth clásico están desfasadas, incompletas o son demasiado ruidosas.
-`BLUEDEATH` nace para ofrecer una alternativa **clara, minimalista y funcional**, pensada para:
+![Language](https://img.shields.io/badge/Bash-Linux-9E4AFF?style=flat-square&logo=gnubash&logoColor=white)
+![License](https://img.shields.io/badge/License-BSD%203--Clause-9E4AFF?style=flat-square)
+![Category](https://img.shields.io/badge/Category-Offensive%20Security%20%7C%20Wireless-111111?style=flat-square)
 
-* enumerar dispositivos BR/EDR de forma fiable,
-* verificar actividad mediante `l2ping`,
-* realizar pruebas de estrés controladas,
-* registrar resultados de forma limpia y consistente.
+*by [theoffsecgirl](https://github.com/theoffsecgirl)*
 
-Sin adornos. Sin frameworks innecesarios. Funcionalidad pura.
+</div>
+
+---
+
+## ¿Qué hace?
+
+Herramienta minimalista para auditar dispositivos Bluetooth BR/EDR (Bluetooth clásico) en Linux usando la pila BlueZ. Sin frameworks, sin adornos: escaneo, fingerprinting, comprobación de actividad y pruebas de estrés controladas.
+
+---
 
 ## Funcionalidades
 
-* Escaneo de dispositivos BR/EDR
-* Inquiry scan (dispositivos descubribles/conectables)
-* Comprobación de actividad (respuesta a `l2ping`)
-* Prueba de estrés controlada (l2ping flood con confirmación)
-* Exportación de resultados
-* Logging automático
-* Flags CLI y menú interactivo
-* Soporte para múltiples interfaces (`hci0`, `hci1`, …)
+- Escaneo e inquiry scan de dispositivos BR/EDR
+- Comprobación de actividad via `l2ping`
+- Prueba de estrés controlada (`l2ping flood`) con confirmación
+- Soporte para múltiples interfaces (`hci0`, `hci1`, …)
+- Menú interactivo y flags CLI
+- Logging automático y exportación de resultados
+
+---
 
 ## Requisitos
 
-* Linux real (Debian, Ubuntu, Arch, Kali…)
-* Bash
-* BlueZ (`hcitool`, `hciconfig`, `l2ping`)
-* Privilegios de superusuario
-* Adaptador Bluetooth compatible
+- Linux (Debian, Ubuntu, Arch, Kali…)
+- Bash + BlueZ (`hcitool`, `hciconfig`, `l2ping`)
+- Adaptador Bluetooth compatible
+- Privilegios de superusuario
+
+---
 
 ## Compatibilidad
 
-| Entorno     | Estado          | Motivo                        |
-| ----------- | --------------- | ----------------------------- |
-| Linux       | ✔️ Compatible   | BlueZ soportado               |
-| macOS       | ❌ No compatible | macOS no usa BlueZ            |
-| Windows     | ❌ No compatible | Sin stack BlueZ               |
-| WSL         | ❌ No compatible | No hay acceso a hardware real |
-| VPS / cloud | ❌ No compatible | No existe hardware Bluetooth  |
+| Entorno | Estado |
+|---------|--------|
+| Linux | ✅ Compatible |
+| macOS | ❌ No (sin BlueZ) |
+| Windows / WSL | ❌ No (sin hardware real) |
+| VPS / cloud | ❌ No (sin hardware Bluetooth) |
+
+---
 
 ## Instalación
 
@@ -52,57 +59,46 @@ cd tool-bluedeath
 chmod +x bluedeath.sh
 ```
 
+---
+
 ## Uso
 
-### Menú interactivo
-
 ```bash
+# Menú interactivo
 sudo ./bluedeath.sh --menu
-```
 
-### Escaneo
-
-```bash
+# Escaneo
 sudo ./bluedeath.sh --scan
+
+# Inquiry scan
+sudo ./bluedeath.sh --inquiry
+
+# Comprobar actividad
+sudo ./bluedeath.sh --active
+
+# Prueba de estrés controlada
+sudo ./bluedeath.sh --dos AA:BB:CC:DD:EE:FF
+
+# Interfaz específica
+sudo BT_INTERFACE=hci1 ./bluedeath.sh --scan
 ```
 
 **Ejemplo de salida:**
 
-```
+```text
 Escaneando…
     00:1A:7D:DA:71:13  Altavoz_1
     D8:AB:C1:22:3F:90  BandaFitness
 ```
 
-### Inquiry scan
-
-```bash
-sudo ./bluedeath.sh --inquiry
-```
-
-### Comprobar actividad (ping Bluetooth)
-
-```bash
-sudo ./bluedeath.sh --active
-```
-
-### Prueba de estrés controlada
-
-```bash
-sudo ./bluedeath.sh --dos AA:BB:CC:DD:EE:FF
-```
-
-### Usar una interfaz concreta
-
-```bash
-sudo BT_INTERFACE=hci1 ./bluedeath.sh --scan
-```
+---
 
 ## Uso ético
 
-Esta herramienta debe emplearse únicamente en laboratorios controlados o en sistemas donde tengas autorización explícita.
-El uso indebido es ilegal y no forma parte del propósito del proyecto.
+Solo para laboratorios controlados y sistemas con autorización explícita. El uso indebido es ilegal.
+
+---
 
 ## Licencia
 
-BSD 3-Clause (incluida en el repositorio).
+BSD 3-Clause · [theoffsecgirl](https://theoffsecgirl.com)
