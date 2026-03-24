@@ -1,6 +1,6 @@
 <div align="center">
 
-# tool-bluedeath
+# bluedeath
 
 **Auditoría ofensiva Bluetooth BR/EDR para Linux**
 
@@ -14,6 +14,30 @@
 
 ---
 
+```text
+┌──────────────────────────────────────────────────────┐
+│                                                      │
+│  ██████╗ ██╗     ██╗   ██████╗ ███████╗             │
+│  ██╔══██╗██║     ██║  ██╔════╝ ██╔════╝             │
+│  ██████╔╝██║     ██║  ███████╗█████╗               │
+│  ██╔══██╗██║     ██║  ╚════██║██╔══╝               │
+│  ██████╔╝███████╗██║  ██████╔╝███████╗             │
+│  ╚═════╝ ╚══════╝╚═╝  ╚═════╝ ╚══════╝             │
+│                                                      │
+│  ██████╗ ███████╗ ███████╗██╗  ██╗             │
+│  ██╔══██╗██╔════╝ ██╔════╝██║  ██║             │
+│  ██║  ██║█████╗  █████╗  ███████║             │
+│  ██║  ██║██╔══╝  ██╔══╝  ██╔══██║             │
+│  ██████╔╝███████╗███████╗██║  ██║             │
+│  ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝             │
+│                                                      │
+│  Bluetooth BR/EDR offensive auditor · Linux only     │
+│  by theoffsecgirl                                    │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
 ## ¿Qué hace?
 
 Herramienta minimalista para auditar dispositivos Bluetooth BR/EDR (Bluetooth clásico) en Linux usando la pila BlueZ. Sin frameworks, sin adornos: escaneo, fingerprinting, comprobación de actividad y pruebas de estrés controladas.
@@ -23,11 +47,11 @@ Herramienta minimalista para auditar dispositivos Bluetooth BR/EDR (Bluetooth cl
 ## Funcionalidades
 
 - Escaneo e inquiry scan de dispositivos BR/EDR
-- Comprobación de actividad via `l2ping`
-- Prueba de estrés controlada (`l2ping flood`) con confirmación
+- Comprobación de actividad vía `l2ping`
+- Prueba de estrés controlada con confirmación
 - Soporte para múltiples interfaces (`hci0`, `hci1`, …)
 - Menú interactivo y flags CLI
-- Logging automático y exportación de resultados
+- Logging y exportación de resultados
 
 ---
 
@@ -54,8 +78,8 @@ Herramienta minimalista para auditar dispositivos Bluetooth BR/EDR (Bluetooth cl
 ## Instalación
 
 ```bash
-git clone https://github.com/theoffsecgirl/tool-bluedeath
-cd tool-bluedeath
+git clone https://github.com/theoffsecgirl/bluedeath
+cd bluedeath
 chmod +x bluedeath.sh
 ```
 
@@ -83,19 +107,11 @@ sudo ./bluedeath.sh --dos AA:BB:CC:DD:EE:FF
 sudo BT_INTERFACE=hci1 ./bluedeath.sh --scan
 ```
 
-**Ejemplo de salida:**
-
-```text
-Escaneando…
-    00:1A:7D:DA:71:13  Altavoz_1
-    D8:AB:C1:22:3F:90  BandaFitness
-```
-
 ---
 
 ## Uso ético
 
-Solo para laboratorios controlados y sistemas con autorización explícita. El uso indebido es ilegal.
+Solo para laboratorios controlados y sistemas con autorización explícita.
 
 ---
 
