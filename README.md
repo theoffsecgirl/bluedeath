@@ -5,6 +5,7 @@
 **Auditoría ofensiva Bluetooth BR/EDR para Linux**
 
 ![Language](https://img.shields.io/badge/Bash-Linux-9E4AFF?style=flat-square&logo=gnubash&logoColor=white)
+![Version](https://img.shields.io/badge/version-1.2.0-9E4AFF?style=flat-square)
 ![License](https://img.shields.io/badge/License-BSD%203--Clause-9E4AFF?style=flat-square)
 ![Category](https://img.shields.io/badge/Category-Offensive%20Security%20%7C%20Wireless-111111?style=flat-square)
 
@@ -19,19 +20,20 @@
 │                                                      │
 │  ██████╗ ██╗     ██╗   ██████╗ ███████╗             │
 │  ██╔══██╗██║     ██║  ██╔════╝ ██╔════╝             │
-│  ██████╔╝██║     ██║  ███████╗█████╗               │
-│  ██╔══██╗██║     ██║  ╚════██║██╔══╝               │
-│  ██████╔╝███████╗██║  ██████╔╝███████╗             │
-│  ╚═════╝ ╚══════╝╚═╝  ╚═════╝ ╚══════╝             │
+│  ██████╔╝██║     ██║  ██║  ███╗█████╗               │
+│  ██╔══██╗██║     ██║  ██║   ██║██╔══╝               │
+│  ██████╔╝███████╗██║  ╚██████╔╝███████╗             │
+│  ╚═════╝ ╚══════╝╚═╝   ╚═════╝ ╚══════╝             │
 │                                                      │
-│  ██████╗ ███████╗ ███████╗██╗  ██╗             │
+│  ██████╗ ███████╗ ███████╗██║  ██╗             │
 │  ██╔══██╗██╔════╝ ██╔════╝██║  ██║             │
 │  ██║  ██║█████╗  █████╗  ███████║             │
 │  ██║  ██║██╔══╝  ██╔══╝  ██╔══██║             │
 │  ██████╔╝███████╗███████╗██║  ██║             │
 │  ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝             │
 │                                                      │
-│  Bluetooth BR/EDR offensive auditor · Linux only     │
+│  Bluetooth BR/EDR offensive auditor  v1.2.0          │
+│  bluetoothctl · btmgmt · l2ping · Linux only         │
 │  by theoffsecgirl                                    │
 └──────────────────────────────────────────────────────┘
 ```
@@ -40,16 +42,17 @@
 
 ## ¿Qué hace?
 
-Herramienta minimalista para auditar dispositivos Bluetooth BR/EDR (Bluetooth clásico) en Linux usando la pila BlueZ. Sin frameworks, sin adornos: escaneo, fingerprinting, comprobación de actividad y pruebas de estrés controladas.
+Herramienta para auditar dispositivos Bluetooth BR/EDR en Linux usando la pila BlueZ. Detecta automáticamente si el stack disponible es moderno (`bluetoothctl` + `btmgmt`) o legacy (`hcitool` + `hciconfig`) y adapta todas las operaciones.
 
 ---
 
 ## Funcionalidades
 
-- Escaneo e inquiry scan de dispositivos BR/EDR
+- Escaneo BR/EDR vía `btmgmt find` + `bluetoothctl` (coproc, no interactivo)
 - Comprobación de actividad vía `l2ping`
 - Prueba de estrés controlada con confirmación
-- Soporte para múltiples interfaces (`hci0`, `hci1`, …)
+- Soporte stack moderno (`bluetoothctl`/`btmgmt`) y legacy (`hcitool`/`hciconfig`)
+- `SCAN_TIMEOUT` configurable por variable de entorno (default: 15s)
 - Menú interactivo y flags CLI
 - Logging y exportación de resultados
 
@@ -58,7 +61,7 @@ Herramienta minimalista para auditar dispositivos Bluetooth BR/EDR (Bluetooth cl
 ## Requisitos
 
 - Linux (Debian, Ubuntu, Arch, Kali…)
-- Bash + BlueZ (`hcitool`, `hciconfig`, `l2ping`)
+- Bash 4.x + BlueZ (`bluetoothctl`, `btmgmt`, `l2ping`)
 - Adaptador Bluetooth compatible
 - Privilegios de superusuario
 
@@ -68,7 +71,8 @@ Herramienta minimalista para auditar dispositivos Bluetooth BR/EDR (Bluetooth cl
 
 | Entorno | Estado |
 |---------|--------|
-| Linux | ✅ Compatible |
+| Linux (BlueZ moderno) | ✅ Preferido |
+| Linux (BlueZ legacy) | ✅ Fallback |
 | macOS | ❌ No (sin BlueZ) |
 | Windows / WSL | ❌ No (sin hardware real) |
 | VPS / cloud | ❌ No (sin hardware Bluetooth) |
@@ -91,10 +95,13 @@ chmod +x bluedeath.sh
 # Menú interactivo
 sudo ./bluedeath.sh --menu
 
-# Escaneo
+# Escaneo (15s por defecto)
 sudo ./bluedeath.sh --scan
 
-# Inquiry scan
+# Escaneo con timeout personalizado
+sudo SCAN_TIMEOUT=30 ./bluedeath.sh --scan
+
+# Inquiry scan BR/EDR
 sudo ./bluedeath.sh --inquiry
 
 # Comprobar actividad
