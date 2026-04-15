@@ -2,7 +2,7 @@
 
 # bluedeath
 
-**Offensive Bluetooth BR/EDR auditing tool for Linux**
+**Auditoría ofensiva Bluetooth BR/EDR para Linux**
 
 ![Language](https://img.shields.io/badge/Bash-Linux-9E4AFF?style=flat-square&logo=gnubash&logoColor=white)
 ![Version](https://img.shields.io/badge/version-1.2.0-9E4AFF?style=flat-square)
@@ -11,7 +11,7 @@
 
 *by [theoffsecgirl](https://github.com/theoffsecgirl)*
 
-> 🇪🇸 [Versión en español](README.es.md)
+> 🇬🇧 [English version](README.md)
 
 </div>
 
@@ -27,7 +27,7 @@
 │  ██████╔╝███████╗██║  ╚██████╔╝███████╗             │
 │  ╚═════╝ ╚══════╝╚═╝   ╚═════╝ ╚══════╝             │
 │                                                      │
-│  ██████╗ ███████╗ ███████╗██║  ██╗             │
+│  ██████╗ ███████╗ ███████╗██║  ██║             │
 │  ██╔══██╗██╔════╝ ██╔════╝██║  ██║             │
 │  ██║  ██║█████╗  █████╗  ███████║             │
 │  ██║  ██║██╔══╝  ██╔══╝  ██╔══██║             │
@@ -42,46 +42,46 @@
 
 ---
 
-## What does it do?
+## ¿Qué hace?
 
-Tool to audit Bluetooth BR/EDR devices on Linux using the BlueZ stack. Automatically detects whether the available stack is modern (`bluetoothctl` + `btmgmt`) or legacy (`hcitool` + `hciconfig`) and adapts all operations accordingly.
-
----
-
-## Features
-
-- BR/EDR scanning via `btmgmt find` + `bluetoothctl` (coproc, non-interactive)
-- Activity check via `l2ping`
-- Controlled stress test with confirmation prompt
-- Modern stack support (`bluetoothctl`/`btmgmt`) and legacy (`hcitool`/`hciconfig`)
-- Configurable `SCAN_TIMEOUT` via environment variable (default: 15s)
-- Interactive menu and CLI flags
-- Logging and result export
+Herramienta para auditar dispositivos Bluetooth BR/EDR en Linux usando la pila BlueZ. Detecta automáticamente si el stack disponible es moderno (`bluetoothctl` + `btmgmt`) o legacy (`hcitool` + `hciconfig`) y adapta todas las operaciones.
 
 ---
 
-## Requirements
+## Funcionalidades
+
+- Escaneo BR/EDR vía `btmgmt find` + `bluetoothctl` (coproc, no interactivo)
+- Comprobación de actividad vía `l2ping`
+- Prueba de estrés controlada con confirmación
+- Soporte stack moderno (`bluetoothctl`/`btmgmt`) y legacy (`hcitool`/`hciconfig`)
+- `SCAN_TIMEOUT` configurable por variable de entorno (default: 15s)
+- Menú interactivo y flags CLI
+- Logging y exportación de resultados
+
+---
+
+## Requisitos
 
 - Linux (Debian, Ubuntu, Arch, Kali…)
 - Bash 4.x + BlueZ (`bluetoothctl`, `btmgmt`, `l2ping`)
-- Compatible Bluetooth adapter (internal or USB with BR/EDR support)
-- Root privileges
+- Adaptador Bluetooth compatible (interno o USB con soporte BR/EDR)
+- Privilegios de superusuario
 
 ---
 
-## Compatibility
+## Compatibilidad
 
-| Environment | Status |
-|-------------|--------|
-| Linux (modern BlueZ) | ✅ Preferred |
-| Linux (legacy BlueZ) | ✅ Fallback |
-| macOS | ❌ No (no BlueZ) |
-| Windows / WSL | ❌ No (no real hardware) |
-| VPS / cloud | ❌ No (no Bluetooth hardware) |
+| Entorno | Estado |
+|---------|--------|
+| Linux (BlueZ moderno) | ✅ Preferido |
+| Linux (BlueZ legacy) | ✅ Fallback |
+| macOS | ❌ No (sin BlueZ) |
+| Windows / WSL | ❌ No (sin hardware real) |
+| VPS / cloud | ❌ No (sin hardware Bluetooth) |
 
 ---
 
-## Installation
+## Instalación
 
 ```bash
 git clone https://github.com/theoffsecgirl/bluedeath
@@ -91,39 +91,39 @@ chmod +x bluedeath.sh
 
 ---
 
-## Usage
+## Uso
 
 ```bash
-# Interactive menu
+# Menú interactivo
 sudo ./bluedeath.sh --menu
 
-# Scan (15s default)
+# Escaneo (15s por defecto)
 sudo ./bluedeath.sh --scan
 
-# Scan with custom timeout
+# Escaneo con timeout personalizado
 sudo SCAN_TIMEOUT=30 ./bluedeath.sh --scan
 
-# BR/EDR inquiry scan
+# Inquiry scan BR/EDR
 sudo ./bluedeath.sh --inquiry
 
-# Check device activity
+# Comprobar actividad
 sudo ./bluedeath.sh --active
 
-# Controlled stress test
+# Prueba de estrés controlada
 sudo ./bluedeath.sh --dos AA:BB:CC:DD:EE:FF
 
-# Specific interface
+# Interfaz específica
 sudo BT_INTERFACE=hci1 ./bluedeath.sh --scan
 ```
 
 ---
 
-## Ethical use
+## Uso ético
 
-For controlled labs and systems with explicit authorization only.
+Solo para laboratorios controlados y sistemas con autorización explícita.
 
 ---
 
-## License
+## Licencia
 
 BSD 3-Clause · [theoffsecgirl](https://theoffsecgirl.com)
